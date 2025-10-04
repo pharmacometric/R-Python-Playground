@@ -4,7 +4,6 @@ Welcome to the R & Python Web IDE, a powerful, browser-based development environ
 
 This IDE mimics the experience of a desktop application, providing a feature-rich environment for data analysis, visualization, and scripting.
 
-![App Screenshot](https://storage.googleapis.com/aistudio-hosting/readme-images/r-python-ide.png)
 
 ## ✨ Key Features
 
