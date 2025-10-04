@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin">
+    <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp">
+    <title>R & Python Web IDE</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://webr.r-wasm.org/v0.5.6/webr.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js"></script>
+
+ <script type="importmap">
+{
+  "imports": {
+    "webr": "https://esm.sh/webr@0.5.6",
+    "react": "https://aistudiocdn.com/react@18.3.1",
+    "react/": "https://aistudiocdn.com/react@18.3.1/",
+    "react-dom": "https://aistudiocdn.com/react-dom@18.3.1",
+    "react-dom/client": "https://aistudiocdn.com/react-dom@18.3.1/client",
+    "react-dom/": "https://aistudiocdn.com/react-dom@18.3.1/",
+    "@monaco-editor/react": "https://aistudiocdn.com/@monaco-editor/react@4.6.0",
+    "monaco-editor/": "https://aistudiocdn.com/monaco-editor@0.45.0/",
+    "framer-motion": "https://aistudiocdn.com/framer-motion@11.2.12",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@0.395.0",
+    "date-fns": "https://aistudiocdn.com/date-fns@3.6.0",
+    "date-fns/": "https://aistudiocdn.com/date-fns@3.6.0/",
+    "@eslint/js": "https://aistudiocdn.com/@eslint/js@^9.36.0",
+    "globals": "https://aistudiocdn.com/globals@^16.4.0",
+    "eslint-plugin-react-hooks": "https://aistudiocdn.com/eslint-plugin-react-hooks@^6.1.0",
+    "eslint-plugin-react-refresh": "https://aistudiocdn.com/eslint-plugin-react-refresh@^0.4.23",
+    "typescript-eslint": "https://aistudiocdn.com/typescript-eslint@^8.45.0",
+    "vite": "https://aistudiocdn.com/vite@^7.1.8",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.0.4",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.22.0",
+    "monaco-editor": "https://aistudiocdn.com/monaco-editor@^0.53.0"
+  }
+}
+</script>
+  <link rel="stylesheet" href="/index.css">
+</head>
+  <body class="bg-gray-100 text-gray-800">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+    
+  </body>
+</html>
