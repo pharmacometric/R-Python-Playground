@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { WebR, RObject } from 'webr';
 import type { ConsoleOutput, Environment, TableData, PlotData } from '../types';
@@ -5,7 +6,7 @@ import type { ConsoleOutput, Environment, TableData, PlotData } from '../types';
 let webR: WebR;
 let plotIdCounter = 0;
 
-/**
+/***
  * Converts a data frame-like object from WebR's .toJs() format
  * into a structured format suitable for table display.
  */
@@ -55,7 +56,6 @@ export function useWebR() {
 
 
   const shelter = useRef<any>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const webRReaders = useRef<{
     stdout?: ReadableStreamDefaultReader<string>;
     stderr?: ReadableStreamDefaultReader<string>;
@@ -113,29 +113,11 @@ export function useWebR() {
           handleStream(webRAny.stderr, 'stderr');
         }
 
-        const canvas = document.createElement('canvas');
-        canvas.id = 'webr-canvas';
-        canvas.style.display = 'none';
-        document.body.appendChild(canvas);
-        canvasRef.current = canvas;
         await webR.evalRVoid('webr::canvas(width = 600, height = 500)');
 
         if (webRAny.channel) {
           webRAny.channel.onmessage = async (msg: any) => {
-            if (msg.type === 'canvas' && msg.data.event === 'canvasImage') {
-              const currentCanvas = canvasRef.current;
-              if (currentCanvas) {
-                const blob = await new Promise<Blob | null>(resolve => currentCanvas.toBlob(resolve, 'image/png'));
-                if (blob) {
-                  const reader = new FileReader();
-                  reader.onload = () => {
-                    const dataUrl = reader.result as string;
-                    setPlots(prev => [...prev, { id: `plot-${plotIdCounter++}`, dataUrl }]);
-                  };
-                  reader.readAsDataURL(blob);
-                }
-              }
-            } else if (msg.type === 'view') {
+            if (msg.type === 'view') {
               await handleViewCallback(msg.data.data, msg.data.title);
             }
           };
@@ -163,9 +145,6 @@ export function useWebR() {
       webRReaders.current.stderr?.cancel().catch(() => {});
       if (shelter.current) {
         shelter.current.purge();
-      }
-      if (canvasRef.current && document.body.contains(canvasRef.current)) {
-        document.body.removeChild(canvasRef.current);
       }
       if (webR) {
         const webRAny = webR as any;
@@ -334,17 +313,47 @@ export function useWebR() {
     `;
 
     try {
-      const result = await shelter.current.captureR(codeToExecute);
-      console.log("Raw output from R execution:", result);
+      const captureResult = await shelter.current.captureR(codeToExecute, {
+        withImages: true,
+      });
+      console.log("Raw output from R execution:", captureResult);
       
-      if (result.stdout && result.stdout.length > 0) {
-        setConsoleOutput(prev => [...prev, { type: 'stdout', message: result.stdout.join('\n') }]);
+      let stdoutMessages = '';
+      let stderrMessages = '';
+
+      captureResult.output.forEach((msg: { type: 'stdout' | 'stderr', data: string }) => {
+        if (msg.type === 'stdout') {
+            stdoutMessages += msg.data + '\n';
+        } else if (msg.type === 'stderr') {
+            stderrMessages += msg.data + '\n';
+        }
+      });
+      
+      stdoutMessages = stdoutMessages.trimEnd();
+      stderrMessages = stderrMessages.trimEnd();
+
+      if (stdoutMessages) {
+        setConsoleOutput(prev => [...prev, { type: 'stdout', message: stdoutMessages }]);
       }
-      if (result.stderr && result.stderr.length > 0) {
-        setConsoleOutput(prev => [...prev, { type: 'stderr', message: result.stderr.join('\n') }]);
+      if (stderrMessages) {
+        setConsoleOutput(prev => [...prev, { type: 'stderr', message: stderrMessages }]);
       }
-      if (result.result && typeof (result.result as any).destroy === 'function') {
-        (result.result as any).destroy();
+      
+      if (captureResult.images.length > 0) {
+        const newPlots: PlotData[] = [];
+        for (const image of captureResult.images) {
+          const canvas = document.createElement('canvas');
+          canvas.width = image.width;
+          canvas.height = image.height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(image, 0, 0);
+            const dataUrl = canvas.toDataURL('image/png');
+            newPlots.push({ id: `plot-${plotIdCounter++}`, dataUrl });
+          }
+          image.close();
+        }
+        setPlots(prev => [...prev, ...newPlots]);
       }
     } catch (e: any) {
       setConsoleOutput(prev => [...prev, { type: 'stderr', message: e.message }]);

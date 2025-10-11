@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { EditorPanel } from './components/EditorPanel';
 import { RightPanel } from './components/RightPanel';
@@ -146,12 +147,14 @@ function App() {
                          <PythonRightPanel
                             consoleOutput={pyodide.consoleOutput}
                             environment={pyodide.environment}
+                            isEnvLoading={pyodide.isEnvLoading}
                             tableData={pyodide.tableData}
                             plots={pyodide.plots}
                             onClearPlots={pyodide.clearPlots}
                             onClearTable={pyodide.clearTable}
                             onClearConsole={pyodide.clearConsole}
                             onViewObject={pyodide.viewObjectByName}
+                            onViewPlot={pyodide.viewPlotByName}
                             runCode={pyodide.runCode}
                         />
                     )}

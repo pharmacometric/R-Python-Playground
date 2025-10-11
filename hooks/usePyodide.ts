@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import type { ConsoleOutput, PythonEnvironment, TableData, PlotData } from '../types';
 
@@ -6,6 +7,7 @@ let plotIdCounter = 0;
 
 export function usePyodide() {
   const [isLoading, setIsLoading] = useState(true);
+  const [isEnvLoading, setIsEnvLoading] = useState(true);
   const [consoleOutput, setConsoleOutput] = useState<ConsoleOutput[]>([]);
   const [environment, setEnvironment] = useState<PythonEnvironment>({});
   const [tableData, setTableData] = useState<TableData | null>(null);
@@ -59,11 +61,14 @@ export function usePyodide() {
 
   const updateEnvironment = async () => {
     if (!pyodide) return;
+    setIsEnvLoading(true);
     try {
       const code = `
 import json
 import pandas as pd
 import sys
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 
 _vars = {}
 _builtins = set(dir(__builtins__))
@@ -72,7 +77,8 @@ _scope = globals()
 # Filter out modules and built-ins
 _vars_to_ignore = {
     '__name__', '__doc__', '__package__', '__loader__', '__spec__', '__annotations__',
-    '__builtins__', '_vars', '_builtins', '_scope', '_vars_to_ignore', 'json', 'pd', 'sys', 'pyodide'
+    '__builtins__', '_vars', '_builtins', '_scope', '_vars_to_ignore', 'json', 'pd', 
+    'sys', 'pyodide', 'plt', 'Figure'
 }
 _vars_to_ignore.update(_builtins)
 
@@ -90,6 +96,7 @@ for name, value in _scope.items():
             'type': type(value).__name__,
             'repr': repr_val,
             'is_dataframe': isinstance(value, pd.DataFrame),
+            'is_figure': isinstance(value, Figure),
         }
 json.dumps(_vars)
       `;
@@ -97,19 +104,25 @@ json.dumps(_vars)
       setEnvironment(JSON.parse(envJson));
     } catch (error) {
         console.error('Error updating Python environment:', error);
+    } finally {
+        setIsEnvLoading(false);
     }
   };
 
-  const runCode = async (code: string) => {
+  const runCode = async (code: string, options?: { isInteractive?: boolean }) => {
     if (!pyodide || isLoading) return;
     setConsoleOutput(prev => [...prev, { type: 'input', message: code }]);
     
+    const isInteractive = options?.isInteractive ?? false;
+
     try {
-        await pyodide.runPythonAsync(`
+        if (!isInteractive) {
+            await pyodide.runPythonAsync(`
 import matplotlib.pyplot as plt
-# Reset plot state for new execution
+# Reset plot state for new script execution
 plt.close('all')
 `);
+        }
         await pyodide.runPythonAsync(code);
 
         const plotsCode = `
@@ -124,22 +137,26 @@ for i in plt.get_fignums():
     buf = io.BytesIO()
     fig.savefig(buf, format='png', bbox_inches='tight')
     buf.seek(0)
-    # Correctly encode to base64 string
     plots.append(base64.b64encode(buf.read()).decode('utf-8'))
-    plt.close(fig)
 
 json.dumps(plots)
 `;
         const plotsJson = await pyodide.runPythonAsync(plotsCode);
         const newPlots = JSON.parse(plotsJson);
-        if (newPlots.length > 0) {
-            setPlots(prev => [
-                ...prev, 
-                ...newPlots.map((p: string) => ({
-                    id: `plot-${plotIdCounter++}`,
-                    dataUrl: `data:image/png;base64,${p}`
-                }))
-            ]);
+        
+        const plotObjects = newPlots.map((p: string) => ({
+            id: `plot-${plotIdCounter++}`,
+            dataUrl: `data:image/png;base64,${p}`
+        }));
+
+        if (isInteractive) {
+            // For interactive console, replace plots with the current state of all figures
+            setPlots(plotObjects);
+        } else {
+            // For editor script runs, append new plots
+            if (plotObjects.length > 0) {
+                setPlots(prev => [...prev, ...plotObjects]);
+            }
         }
     } catch (e: any) {
       // The error will be printed by the pyodide.setStderr handler
@@ -189,9 +206,49 @@ else:
     }
   };
 
+  const viewPlotByName = async (name: string) => {
+    if (!pyodide || !/^[a-zA-Z0-9_]+$/.test(name)) {
+      const errorMsg = `Error: Invalid object name for viewer: ${name}`;
+      console.error(errorMsg);
+      setConsoleOutput(prev => [...prev, { type: 'stderr', message: errorMsg }]);
+      return;
+    }
+
+    try {
+        const pythonCode = `
+import io
+import base64
+from matplotlib.figure import Figure
+
+plot_b64 = None
+if "${name}" in globals() and isinstance(globals()["${name}"], Figure):
+    fig = globals()["${name}"]
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', bbox_inches='tight')
+    buf.seek(0)
+    plot_b64 = base64.b64encode(buf.read()).decode('utf-8')
+plot_b64
+`;
+        const b64string = await pyodide.runPythonAsync(pythonCode);
+        if (b64string) {
+            const newPlot = {
+                id: `plot-${plotIdCounter++}`,
+                dataUrl: `data:image/png;base64,${b64string}`
+            };
+            setPlots(prev => [...prev, newPlot]);
+        } else {
+             throw new Error(`Object '${name}' is not a Figure or does not exist.`);
+        }
+    } catch (error) {
+        const errorMsg = `Could not view plot object '${name}': ${(error as Error).message}`;
+        console.error(errorMsg);
+        setConsoleOutput(prev => [...prev, { type: 'stderr', message: errorMsg }]);
+    }
+  };
+
   const clearPlots = () => setPlots([]);
   const clearTable = () => setTableData(null);
   const clearConsole = () => setConsoleOutput([]);
 
-  return { isLoading, consoleOutput, environment, tableData, plots, runCode, clearPlots, clearTable, clearConsole, viewObjectByName };
+  return { isLoading, isEnvLoading, consoleOutput, environment, tableData, plots, runCode, clearPlots, clearTable, clearConsole, viewObjectByName, viewPlotByName };
 }

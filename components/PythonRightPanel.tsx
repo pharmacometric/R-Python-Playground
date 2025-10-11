@@ -1,17 +1,20 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { FileText, Database, Package, ChevronLeft, ChevronRight, Brush, Download, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
+import { FileText, Database, Package, ChevronLeft, ChevronRight, Brush, Download, ArrowUp, ArrowDown, ChevronsUpDown, Image } from 'lucide-react';
 import type { ConsoleOutput, PythonEnvironment, TableData, PlotData } from '../types';
 
 interface PythonRightPanelProps {
   consoleOutput: ConsoleOutput[];
   environment: PythonEnvironment;
+  isEnvLoading: boolean;
   tableData: TableData | null;
   plots: PlotData[];
   onClearPlots: () => void;
   onClearTable: () => void;
   onClearConsole: () => void;
   onViewObject: (name: string) => void;
-  runCode: (code: string) => void;
+  onViewPlot: (name: string) => void;
+  runCode: (code: string, options?: { isInteractive?: boolean }) => void;
 }
 
 interface CollapsibleSectionProps {
@@ -43,9 +46,9 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({ title, children
   );
 };
 
-export function PythonRightPanel({ consoleOutput, environment, tableData, plots, onClearPlots, onClearTable, onClearConsole, onViewObject, runCode }: PythonRightPanelProps) {
+export function PythonRightPanel({ consoleOutput, environment, isEnvLoading, tableData, plots, onClearPlots, onClearTable, onClearConsole, onViewObject, onViewPlot, runCode }: PythonRightPanelProps) {
   const [activeTopTab, setActiveTopTab] = useState('Console');
-  const [activeBottomTab, setActiveBottomTab] = useState('Viewer');
+  const [activeBottomTab, setActiveBottomTab] = useState('Tables');
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(true);
   const [isOutputOpen, setIsOutputOpen] = useState(true);
   
@@ -54,12 +57,17 @@ export function PythonRightPanel({ consoleOutput, environment, tableData, plots,
   }, [plots]);
 
   useEffect(() => {
-    if (tableData) setActiveBottomTab('Viewer');
+    if (tableData) setActiveBottomTab('Tables');
   }, [tableData]);
 
   const handleViewObject = (name: string) => {
     onViewObject(name);
-    setActiveBottomTab('Viewer');
+    setActiveBottomTab('Tables');
+  };
+
+  const handleViewPlot = (name: string) => {
+    onViewPlot(name);
+    setActiveBottomTab('Plots');
   };
 
   return (
@@ -78,7 +86,7 @@ export function PythonRightPanel({ consoleOutput, environment, tableData, plots,
             </div>
             <div className="flex-grow overflow-hidden p-2 bg-white">
                 {activeTopTab === 'Console' && <ConsolePanel output={consoleOutput} onClear={onClearConsole} runCode={runCode} />}
-                {activeTopTab === 'Environment' && <EnvironmentPanel environment={environment} onViewObject={handleViewObject} />}
+                {activeTopTab === 'Environment' && <EnvironmentPanel environment={environment} onViewObject={handleViewObject} onViewPlot={handleViewPlot} isEnvLoading={isEnvLoading} />}
             </div>
         </CollapsibleSection>
       </div>
@@ -91,12 +99,12 @@ export function PythonRightPanel({ consoleOutput, environment, tableData, plots,
         >
             <div className="flex-shrink-0 border-b border-gray-200">
                 <nav className="flex space-x-2 p-1 bg-white">
-                    <TabButton isActive={activeBottomTab === 'Viewer'} onClick={() => setActiveBottomTab('Viewer')}>Viewer</TabButton>
+                    <TabButton isActive={activeBottomTab === 'Tables'} onClick={() => setActiveBottomTab('Tables')}>Tables</TabButton>
                     <TabButton isActive={activeBottomTab === 'Plots'} onClick={() => setActiveBottomTab('Plots')}>Plots</TabButton>
                 </nav>
             </div>
             <div className="flex-grow overflow-hidden bg-white">
-                {activeBottomTab === 'Viewer' && <ViewerPanel tableData={tableData} onClear={onClearTable}/>}
+                {activeBottomTab === 'Tables' && <TablesPanel tableData={tableData} onClear={onClearTable}/>}
                 {activeBottomTab === 'Plots' && <PlotPanel plots={plots} onClear={onClearPlots}/>}
             </div>
         </CollapsibleSection>
@@ -111,7 +119,7 @@ const TabButton: React.FC<{ isActive: boolean; onClick: () => void; children: Re
     </button>
 );
 
-const ConsolePanel = ({ output, onClear, runCode }: { output: ConsoleOutput[], onClear: () => void, runCode: (code: string) => void }) => {
+const ConsolePanel = ({ output, onClear, runCode }: { output: ConsoleOutput[], onClear: () => void, runCode: (code: string, options?: { isInteractive?: boolean }) => void }) => {
     const endOfConsoleRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const [inputValue, setInputValue] = useState('');
@@ -123,7 +131,7 @@ const ConsolePanel = ({ output, onClear, runCode }: { output: ConsoleOutput[], o
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter' && inputValue.trim()) {
             e.preventDefault();
-            runCode(inputValue);
+            runCode(inputValue, { isInteractive: true });
             setInputValue('');
         }
     };
@@ -170,9 +178,11 @@ const ConsolePanel = ({ output, onClear, runCode }: { output: ConsoleOutput[], o
     );
 };
 
-const EnvironmentPanel = ({ environment, onViewObject }: { environment: PythonEnvironment, onViewObject: (name: string) => void }) => (
+const EnvironmentPanel = ({ environment, onViewObject, onViewPlot, isEnvLoading }: { environment: PythonEnvironment, onViewObject: (name: string) => void, onViewPlot: (name: string) => void, isEnvLoading: boolean }) => (
     <div className="h-full overflow-y-auto">
-        {Object.keys(environment).length === 0 ? (
+        {isEnvLoading ? (
+            <p className="text-gray-500 italic p-2">Loading variables and data from environment...</p>
+        ) : Object.keys(environment).length === 0 ? (
             <p className="text-gray-500 italic">Environment is empty.</p>
         ) : (
             <table className="w-full text-left text-xs">
@@ -185,14 +195,26 @@ const EnvironmentPanel = ({ environment, onViewObject }: { environment: PythonEn
                 </thead>
                 <tbody>
                     {Object.entries(environment).map(([name, details]) => {
-                         const rowClass = details.is_dataframe
+                         const isClickable = details.is_dataframe || details.is_figure;
+                         const rowClass = isClickable
                             ? "border-b border-gray-200 hover:bg-blue-50 cursor-pointer"
                             : "border-b border-gray-200 hover:bg-gray-100";
+                         
+                         const handleClick = () => {
+                             if (details.is_dataframe) {
+                                 onViewObject(name);
+                             } else if (details.is_figure) {
+                                 onViewPlot(name);
+                             }
+                         }
+
                         return (
-                            <tr key={name} className={rowClass} onClick={details.is_dataframe ? () => onViewObject(name) : undefined}>
+                            <tr key={name} className={rowClass} onClick={isClickable ? handleClick : undefined}>
                                 <td className="p-1 font-mono text-gray-900 flex items-center space-x-2">
                                     {details.is_dataframe 
                                      ? <Database className="h-3 w-3 text-green-600 flex-shrink-0" /> 
+                                     : details.is_figure
+                                     ? <Image className="h-3 w-3 text-orange-500 flex-shrink-0" />
                                      : <FileText className="h-3 w-3 text-blue-600 flex-shrink-0" />}
                                     <span>{name}</span>
                                 </td>
@@ -207,7 +229,7 @@ const EnvironmentPanel = ({ environment, onViewObject }: { environment: PythonEn
     </div>
 );
 
-const ViewerPanel = ({ tableData, onClear }: { tableData: TableData | null; onClear: () => void; }) => {
+const TablesPanel = ({ tableData, onClear }: { tableData: TableData | null; onClear: () => void; }) => {
     const [sortConfig, setSortConfig] = useState<{ key: string | null; direction: 'ascending' | 'descending' }>({ key: null, direction: 'ascending' });
 
     const sortedData = useMemo(() => {

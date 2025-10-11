@@ -18,6 +18,7 @@ export interface PythonEnvObject {
   type: string;
   repr: string;
   is_dataframe: boolean;
+  is_figure: boolean;
 }
 
 export interface PythonEnvironment {

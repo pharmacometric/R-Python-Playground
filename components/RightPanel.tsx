@@ -95,7 +95,7 @@ export function RightPanel({ consoleOutput, environment, tableData, plots, packa
             </div>
             <div className="flex-grow overflow-hidden p-2 bg-white">
                 {activeTopTab === 'Console' && <ConsolePanel output={consoleOutput} onClear={onClearConsole} runCode={runCode} />}
-                {activeTopTab === 'Environment' && <EnvironmentPanel environment={environment} onViewObject={handleViewObject} />}
+                {activeTopTab === 'Environment' && <EnvironmentPanel environment={environment} onViewObject={handleViewObject} runCode={runCode} />}
                 {activeTopTab === 'Package' && <PackagesPanel packages={packages} />}
             </div>
         </CollapsibleSection>
@@ -278,7 +278,7 @@ const LogsPanel = ({ output }: { output: ConsoleOutput[] }) => {
 };
 
 
-const EnvironmentPanel = ({ environment, onViewObject }: { environment: Environment, onViewObject: (name: string) => void }) => (
+const EnvironmentPanel = ({ environment, onViewObject, runCode }: { environment: Environment, onViewObject: (name: string) => void, runCode: (code: string) => void }) => (
     <div className="h-full overflow-y-auto">
         {Object.keys(environment).length === 0 ? (
             <p className="text-gray-500 italic">Environment is empty.</p>
@@ -293,16 +293,25 @@ const EnvironmentPanel = ({ environment, onViewObject }: { environment: Environm
                 <tbody>
                     {Object.entries(environment).map(([name, details]) => {
                         const isDataFrame = details.class.includes('data.frame');
-                        const rowClass = isDataFrame
-                            ? "border-b border-gray-200 hover:bg-blue-50 cursor-pointer"
-                            : "border-b border-gray-200 hover:bg-gray-100";
+                        
+                        const handleClick = () => {
+                            if (isDataFrame) {
+                                onViewObject(name);
+                            } else {
+                                runCode(name);
+                            }
+                        };
+                        
+                        const title = isDataFrame 
+                            ? `Click to view '${name}' in the Tables tab`
+                            : `Click to print the value of '${name}' to the console`;
 
                         return (
                             <tr
                                 key={name}
-                                className={rowClass}
-                                onClick={isDataFrame ? () => onViewObject(name) : undefined}
-                                title={isDataFrame ? `Click to view '${name}' in the Tables tab` : ''}
+                                className="border-b border-gray-200 hover:bg-blue-50 cursor-pointer"
+                                onClick={handleClick}
+                                title={title}
                             >
                                 <td className="p-1 font-mono text-gray-900 flex items-center space-x-2">
                                     {details.objectType === 'function'

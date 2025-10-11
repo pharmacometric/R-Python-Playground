@@ -1,5 +1,5 @@
 {
-  "name": "R-python Web IDE_v3",
+  "name": "R-python Web IDE_v5",
   "description": "A web-based IDE for running R code directly in the browser using WebR (R in WebAssembly). It features a code editor, console, environment viewer, data viewer, and plot viewer, mimicking a desktop R development experience.",
   "requestFramePermissions": []
 }

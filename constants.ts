@@ -69,6 +69,12 @@ plt.ylabel("sin(x)")
 plt.grid(True)
 # The plot is captured automatically after the script runs.
 
+# Example 4: A figure object in the environment
+# Click 'fig_object' in the Environment tab to view it in Plots.
+fig_object, ax = plt.subplots()
+ax.plot([1, 2, 3], [9, 4, 1])
+ax.set_title("A Figure Object")
+
 # This variable will appear in the environment viewer
 a_variable = 42
 `;
