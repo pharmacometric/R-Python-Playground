@@ -1,4 +1,4 @@
-# R & Python Web IDE
+# R & Python Playground for Developers
 
 Welcome to the R & Python Web IDE, a powerful, browser-based development environment that allows you to write and execute both R and Python code directly in your web browser. This application is powered by **WebR** and **Pyodide**, which bring the R and Python runtimes to the browser via WebAssembly, eliminating the need for any server-side computation.
 
