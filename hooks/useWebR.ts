@@ -72,7 +72,7 @@ export function useWebR() {
         webR = new WebR();
 
         setIsLoading(true);
-        setConsoleOutput([{ type: 'system', message: 'Initializing WebR...' }]);
+        setConsoleOutput([{ type: 'system', message: 'Initializing R...' }]);
         
         await webR.init();
         shelter.current = await new webR.Shelter();
@@ -122,7 +122,7 @@ export function useWebR() {
             }
           };
         } else {
-          console.warn('WebR channel is not available');
+          console.warn('R channel is not available');
         }
 
         setIsLoading(false);
